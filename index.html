@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DPMods Admin</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+/* === THEME === */
+:root {
+  --bg:#10051a;
+  --glass:rgba(40,10,50,.7);
+  --border:rgba(187,102,255,.25);
+  --primary:#bb66ff;
+  --text:#fff;
+  --muted:#ccc;
+}
+body{
+  margin:0;
+  font-family:Poppins,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+header{
+  padding:16px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+button{
+  background:var(--primary);
+  border:none;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+#keysList{padding:16px}
+.key-item{
+  background:var(--glass);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
+}
+.tag{
+  font-size:12px;
+  opacity:.8;
+}
+#loader{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.85);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+#toast{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--primary);
+  padding:10px 18px;
+  border-radius:30px;
+  opacity:0;
+  transition:.3s;
+}
+</style>
+</head>
+
+<body onload="initApp()">
+
+<header>
+  <b><i class="fa fa-shield"></i> DPMods Admin</b>
+  <button onclick="loadData()"><i class="fa fa-sync"></i></button>
+</header>
+
+<div id="keysList"></div>
+
+<div id="loader"><i class="fa fa-circle-notch fa-spin fa-2x"></i></div>
+<div id="toast"></div>
+
+<script>
+/* ===============================
+   FIREBASE CONFIG
+================================ */
+const FIREBASE_URL =
+  "https://deferlohin-default-rtdb.firebaseio.com/Key.json";
+
+/* ===============================
+   GLOBAL DATA
+================================ */
+let DATA = {
+  config:{}, security:{}, ui:{}, theme:{},
+  social_links:{}, promo:{}, update:{},
+  blacklist:[], keys:{}
+};
+
+/* ===============================
+   UI HELPERS
+================================ */
+function toast(msg, err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=err?'#ff4d4d':'#bb66ff';
+  t.style.opacity=1;
+  setTimeout(()=>t.style.opacity=0,3000);
+}
+
+/* ===============================
+   LOAD DATA
+================================ */
+async function loadData(){
+  document.getElementById('loader').style.display='flex';
+  try{
+    const r=await fetch(FIREBASE_URL);
+    if(!r.ok) throw new Error("Firebase load failed");
+    const j=await r.json();
+
+    DATA=j || DATA;
+    if(!DATA.keys) DATA.keys={};
+    if(!DATA.blacklist) DATA.blacklist=[];
+
+    renderKeys();
+    toast("Data loaded");
+  }catch(e){
+    console.error(e);
+    toast(e.message,true);
+  }finally{
+    document.getElementById('loader').style.display='none';
+  }
+}
+
+/* ===============================
+   SAVE DATA
+================================ */
+async function saveAllData(){
+  document.getElementById('loader').style.display='flex';
+  try{
+    const r=await fetch(FIREBASE_URL,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(DATA,null,2)
+    });
+    if(!r.ok) throw new Error("Firebase save failed");
+    toast("Saved");
+  }catch(e){
+    console.error(e);
+    toast(e.message,true);
+  }finally{
+    document.getElementById('loader').style.display='none';
+  }
+}
+
+/* ===============================
+   RENDER KEYS
+================================ */
+function renderKeys(){
+  const list=document.getElementById('keysList');
+  list.innerHTML='';
+  const keys=Object.keys(DATA.keys||{});
+
+  if(!keys.length){
+    list.innerHTML='<p style="opacity:.6">No keys</p>';
+    return;
+  }
+
+  keys.forEach(k=>{
+    const d=DATA.keys[k];
+    list.innerHTML+=`
+      <div class="key-item">
+        <div>
+          <b>${k}</b><br>
+          <span class="tag">${d.type}</span>
+          <span class="tag">${d.value||'∞'}</span>
+        </div>
+        <div>
+          <i class="fa fa-trash" onclick="delKey('${k}')"></i>
+        </div>
+      </div>`;
+  });
+}
+
+/* ===============================
+   KEY ACTIONS
+================================ */
+function delKey(k){
+  if(!confirm("Delete "+k+" ?")) return;
+  delete DATA.keys[k];
+  renderKeys();
+  saveAllData();
+}
+
+/* ===============================
+   INIT
+================================ */
+function initApp(){
+  loadData();
+}
+</script>
+
+</body>
+</html>
